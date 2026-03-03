@@ -76,9 +76,9 @@ function parseReceipt(text) {
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
     // Normalize Latin lookalikes in the line for keyword matching
-    const norm = line.replace(/A/g,'А').replace(/B/g,'В').replace(/C/g,'С').replace(/E/g,'Е')
-      .replace(/H/g,'Н').replace(/I/g,'І').replace(/K/g,'К').replace(/M/g,'М')
-      .replace(/O/g,'О').replace(/P/g,'Р').replace(/T/g,'Т').replace(/X/g,'Х');
+    const norm = line.replace(/A/g, 'А').replace(/B/g, 'В').replace(/C/g, 'С').replace(/E/g, 'Е')
+      .replace(/H/g, 'Н').replace(/I/g, 'І').replace(/K/g, 'К').replace(/M/g, 'М')
+      .replace(/O/g, 'О').replace(/P/g, 'Р').replace(/T/g, 'Т').replace(/X/g, 'Х');
     // Match ФОП with OCR variants
     if (/[ФфF«][ОоО0][ПпР]\s+/i.test(norm) && !fop) {
       fop = norm.replace(/^.*?[ФфF«][ОоО0][ПпР]\s*/i, "").trim();
@@ -108,7 +108,7 @@ function parseReceipt(text) {
 
   if (fop) {
     for (let i = 0; i < lines.length; i++) {
-      const ln = lines[i].replace(/A/g,'А').replace(/O/g,'О').replace(/P/g,'Р');
+      const ln = lines[i].replace(/A/g, 'А').replace(/O/g, 'О').replace(/P/g, 'Р');
       if (/[ФфF«][ОоО0][ПпР]\s+/i.test(ln)) {
         for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
           const candidate = lines[j].trim();
