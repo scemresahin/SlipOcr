@@ -306,14 +306,14 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   display: flex;
   flex-direction: column;
   overflow: auto;
-  padding: 14px 16px;
+  padding: 16px 20px;
   gap: 10px;
   min-height: 0;
 }
 .table-view {
   flex: 1;
   overflow: auto;
-  padding: 12px;
+  padding: 16px;
   min-height: 0;
 }
 
@@ -323,13 +323,13 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
 .app-header {
   padding: 12px 20px;
   background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--glass-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-shrink: 0;
   z-index: 50;
 }
@@ -337,10 +337,11 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 .header-logo {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-lg);
   background: var(--accent-gradient);
   display: flex;
@@ -348,29 +349,146 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   justify-content: center;
   font-size: 20px;
   flex-shrink: 0;
-  box-shadow: var(--shadow-glow-accent);
+  box-shadow: 0 3px 12px rgba(245,158,11,0.25);
 }
-.header-title {
+.header-name {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.2;
+  letter-spacing: .01em;
 }
-.header-subtitle {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.4;
+
+/* ─── Header Select Boxes ─── */
+.header-select {
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  outline: none;
+  transition: all .2s;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 22px;
 }
-.header-subtitle .stat-pending { color: var(--accent) }
-.header-subtitle .stat-scanning { color: var(--info) }
-.header-subtitle .stat-ready { color: var(--success-dark) }
-.header-actions {
+.header-select:hover {
+  border-color: var(--accent-border);
+  color: var(--text-primary);
+}
+.header-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg-subtle);
+}
+
+/* ─── Navigation Tabs ─── */
+.header-nav-group {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
-  overflow: visible;
 }
+.header-nav {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-surface);
+  border-radius: 12px;
+  padding: 4px;
+}
+.nav-tab {
+  padding: 9px 20px;
+  border-radius: 9px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 14px;
+  font-family: var(--font-body);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all .2s;
+}
+.nav-tab:hover:not(.nav-tab--active) { background: var(--bg-surface-hover); color: var(--text-secondary) }
+.nav-tab--active {
+  background: var(--accent-gradient);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(245,158,11,0.2);
+}
+.nav-badge {
+  background: rgba(255,255,255,0.15);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+}
+.nav-tab:not(.nav-tab--active) .nav-badge {
+  background: var(--bg-elevated);
+}
+/* nav-divider removed — tabs are split into separate nav groups */
+
+/* ─── Utility Buttons ─── */
+.header-utils {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.util-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  transition: all .2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+.util-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-border);
+  transform: translateY(-1px);
+}
+.util-btn:disabled { opacity: .3; cursor: not-allowed; transform: none }
+
+/* Export button with label */
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.export-btn span { font-size: 14px }
+.export-btn:hover {
+  background: var(--accent-gradient);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(245,158,11,0.2);
+}
+.export-btn:disabled { opacity: .3; cursor: not-allowed }
 
 /* ═══════════════════════════════════════════════════
    Buttons
@@ -465,7 +583,7 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   font-size: 11px;
 }
 
-/* ─── Button Groups ─── */
+/* ─── Button Groups (legacy) ─── */
 .btn-group {
   display: flex;
   gap: 2px;
@@ -473,79 +591,6 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   border-radius: 10px;
   padding: 3px;
   overflow: visible;
-}
-
-/* ─── Lang Buttons ─── */
-.lang-btn {
-  padding: 6px 10px;
-  border-radius: 7px;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  background: transparent;
-  color: var(--text-muted);
-  transition: all .2s;
-}
-.lang-btn--active {
-  background: var(--accent-bg);
-  color: var(--accent);
-}
-.lang-btn:hover:not(.lang-btn--active) {
-  background: var(--bg-surface-hover);
-}
-
-/* ─── Tab Buttons ─── */
-.tab {
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 13px;
-  font-family: var(--font-body);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all .2s;
-}
-.tab:hover:not(.tab--active) { background: var(--bg-surface-hover); color: var(--text-secondary) }
-.tab--active {
-  background: var(--accent-gradient);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(245,158,11,0.2);
-}
-.tab .badge {
-  background: rgba(255,255,255,0.15);
-  padding: 2px 6px;
-  border-radius: 5px;
-  font-size: 10px;
-}
-
-/* ─── Theme Toggle ─── */
-.theme-toggle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-surface);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  transition: all .25s ease;
-  padding: 0;
-  flex-shrink: 0;
-}
-.theme-toggle:hover {
-  background: var(--bg-surface-hover);
-  color: var(--accent);
-  border-color: var(--accent-border);
-  transform: rotate(15deg);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -586,7 +631,7 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
 }
 .input {
   width: 100%;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-primary);
   background: var(--bg-input);
@@ -599,7 +644,7 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
 }
 .input:focus {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px var(--accent-bg-subtle);
+  box-shadow: 0 0 0 2px var(--accent-bg-subtle);
 }
 .input--mono {
   font-size: 16px;
@@ -668,7 +713,7 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   cursor: pointer;
   border: 2px dashed var(--border-primary);
   border-radius: var(--radius-xl);
-  margin: 20px;
+  margin: 16px;
   background: transparent;
   transition: all .3s ease;
   animation: dropPulse 4s ease-in-out infinite;
@@ -684,12 +729,12 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   animation: none;
 }
 .dropzone__icon {
-  font-size: 52px;
-  margin-bottom: 14px;
+  font-size: 48px;
+  margin-bottom: 12px;
   animation: gentleFloat 3s ease-in-out infinite;
 }
 .dropzone__title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
   text-align: center;
@@ -700,9 +745,9 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
   margin-top: 4px;
 }
 .dropzone__status {
-  margin-top: 20px;
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
+  margin-top: 16px;
+  padding: 6px 14px;
+  border-radius: 20px;
   font-size: 11px;
   font-weight: 600;
   display: inline-flex;
@@ -1016,78 +1061,233 @@ select option { background: var(--bg-secondary); color: var(--text-secondary) }
 /* ═══════════════════════════════════════════════════
    Excel / Bank Statements View
    ═══════════════════════════════════════════════════ */
+/* ─── Excel View: Modern Grid ─── */
 .excel-view {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: auto;
-  padding: 14px 16px;
-  gap: 10px;
+  padding: 20px 24px;
   min-height: 0;
+  gap: 20px;
+}
+
+/* Big centered empty drop zone */
+.excel-empty-drop {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed var(--border-primary);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: all .3s;
+  min-height: 300px;
+}
+.excel-empty-drop:hover,
+.excel-empty-drop.dropzone--active {
+  border-color: var(--accent);
+  background: var(--accent-bg-subtle);
+  box-shadow: 0 0 40px rgba(245,158,11,0.06);
+}
+.excel-empty-drop__icon {
+  font-size: 56px;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+}
+.excel-empty-drop__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.excel-empty-drop__sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Top bar: dropzone + summary pill side-by-side */
+.excel-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
 .excel-dropzone {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   border: 2px dashed var(--border-primary);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   cursor: pointer;
-  transition: all .2s;
-  flex-shrink: 0;
+  transition: all .25s;
 }
 .excel-dropzone:hover {
   border-color: var(--accent);
   background: var(--accent-bg-subtle);
 }
-.excel-dropzone__icon { font-size: 24px; flex-shrink: 0 }
-.excel-dropzone__text { font-size: 13px; color: var(--text-muted); font-weight: 600 }
+.excel-dropzone__icon { font-size: 20px; flex-shrink: 0 }
+.excel-dropzone__content { display: flex; flex-direction: column; gap: 0 }
+.excel-dropzone__title { font-size: 12px; color: var(--text-secondary); font-weight: 600 }
+.excel-dropzone__sub { font-size: 10px; color: var(--text-dim); font-weight: 500 }
+
+/* Summary pill */
+.excel-summary-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--success-bg), var(--success-bg-subtle));
+  border: 1px solid var(--success-border);
+  margin-left: auto;
+}
+.excel-summary-pill__label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.excel-summary-pill__value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--success);
+}
+
+/* Responsive card grid */
+.excel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* Card */
 .excel-card {
-  padding: 14px;
-  border-radius: var(--radius-lg);
+  padding: 18px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--border-primary);
   background: var(--bg-surface);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  transition: border-color .2s;
+  gap: 14px;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
 }
-.excel-card:hover { border-color: var(--accent-border) }
-.excel-card-header {
+.excel-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: 0 4px 20px rgba(245,158,11,0.08);
+  transform: translateY(-1px);
+}
+
+/* Card head: badge + delete */
+.excel-card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
 }
-.excel-card-stats {
+.excel-card-del {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-primary); border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.excel-card-del:hover {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error);
+  transform: scale(1.1);
+}
+
+/* Big amount display */
+.excel-card-amount {
   display: flex;
-  gap: 12px;
+  align-items: baseline;
+  gap: 4px;
+}
+.excel-card-amount__input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--border-primary);
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 4px 0;
+  outline: none;
+  transition: border-color .2s;
+}
+.excel-card-amount__input:focus {
+  border-color: var(--accent);
+}
+.excel-card-amount__currency {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Meta stats */
+.excel-card-meta {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-tertiary);
 }
 .excel-refund { color: var(--error); font-style: italic }
+
+/* Type badges */
 .type-badge {
   display: inline-flex;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  border-radius: 20px;
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
+  letter-spacing: .03em;
+  text-transform: uppercase;
 }
 .type-badge--ekvayring { background: var(--accent-bg); color: var(--accent) }
 .type-badge--fo { background: var(--info-bg); color: var(--info) }
 .type-badge--kontrahent { background: var(--success-bg); color: var(--success) }
-.excel-summary {
-  padding: 12px 14px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--success-bg), var(--success-bg-subtle));
-  border: 1px solid var(--success-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
+
+/* Card fields grid */
+.excel-card-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.excel-card-field .label { font-size: 10px; margin-bottom: 3px }
+.input--sm { padding: 6px 10px; font-size: 12px }
+
+/* Month section */
+.excel-card-month { margin-top: -2px }
+.month-grid--compact { gap: 2px; margin-top: 0 }
+.month-grid--compact .month-btn { padding: 4px 5px; font-size: 9px; min-width: 26px }
+
+/* File name footer */
+.excel-card-file {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.excel-card-filename {
+  font-size: 10px;
+  color: var(--text-dim);
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 /* ═══════════════════════════════════════════════════

@@ -241,14 +241,14 @@ const MILANA = {
     allDone: "Все готово, Міланочко!",
     stillScanning: "Ще скануються...",
     exported: "Excel для Мілани готовий!",
-    noData: "Міланочко, спочатку завантаж чеки",
+    noData: "Міланочко, спочатку завантаж чеки або виписки",
     autoSaved: "автоматично збережено",
     photosAdded: "фото додано",
     startBtn: "Міланочко, починаємо сканування!",
     pendingMsg: "Готові до сканування",
     deleted: "Мілана прибрала",
     excelDrop: "Міланочко, кидай виписки сюди!",
-    excelDropSub: "ПриватБанк виписки (.xlsx)",
+    excelDropSub: "Банківські виписки (.xlsx)",
     excelParsed: "Виписку оброблено!",
     excelNoData: "Міланочко, завантаж виписки",
     excelDeleted: "Виписку видалено",
@@ -270,14 +270,14 @@ const MILANA = {
     allDone: "Hepsi tamam, Milana!",
     stillScanning: "Taranmaya devam ediyor...",
     exported: "Milana'nin Excel'i hazir!",
-    noData: "Milana, once fisleri yukle",
+    noData: "Milana, once fisleri veya ekstreleri yukle",
     autoSaved: "otomatik kaydedildi",
     photosAdded: "foto eklendi",
     startBtn: "Milana, taramayı başlat!",
     pendingMsg: "Taranmaya hazir",
     deleted: "Milana temizledi",
     excelDrop: "Milana, ekstreleri buraya birak!",
-    excelDropSub: "PrivatBank ekstreleri (.xlsx)",
+    excelDropSub: "Banka ekstreleri (.xlsx)",
     excelParsed: "Ekstre islendi!",
     excelNoData: "Milana, once ekstreleri yukle",
     excelDeleted: "Ekstre silindi",
@@ -299,14 +299,14 @@ const MILANA = {
     allDone: "All done, Milana!",
     stillScanning: "Still scanning...",
     exported: "Milana's Excel is ready!",
-    noData: "Milana, upload receipts first",
+    noData: "Milana, upload receipts or statements first",
     autoSaved: "auto-saved",
     photosAdded: "photos added",
     startBtn: "Milana, start scanning!",
     pendingMsg: "Ready to scan",
     deleted: "Milana cleaned up",
     excelDrop: "Milana, drop statements here!",
-    excelDropSub: "PrivatBank statements (.xlsx)",
+    excelDropSub: "Bank statements (.xlsx)",
     excelParsed: "Statement processed!",
     excelNoData: "Milana, upload statements first",
     excelDeleted: "Statement removed",
@@ -327,12 +327,13 @@ const LANGS = {
     prev: "Попередні", year: "2026",
     ekvayring: "Еквайринг", fo: "Від ФО", kontrahent: "Від контрагентів",
     commission: "Комісія", txCount: "операцій", refunds: "повернень",
+    themeDark: "Темна", themeLight: "Світла",
     tip: { prev: "Попередній чек", next: "Наступний чек", zoomIn: "Збільшити", zoomOut: "Зменшити", del: "Видалити чек", addPhoto: "Додати фото", entry: "Перегляд чеків", table: "Зведена таблиця", excel: "Банківські виписки", exportXls: "Завантажити Excel-файл", raw: "Показати текст чеку", start: "Запустити сканування всіх чеків", theme: "Змінити тему" },
   },
   tr: {
     months: ["Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik"],
     monthShort: ["Oca", "Sub", "Mar", "Nis", "May", "Haz", "Tem", "Agu", "Eyl", "Eki", "Kas", "Ara"],
-    title: "Milana Asistani",
+    title: "Milana Asistanı",
     entry: "Fisler", table: "Tablo", excel: "Ekstreler", export: "Excel Indir",
     gotivka: "Nakit", bezgotivka: "Banka", vsogo: "Toplam",
     fopLabel: "FOP", tdLabel: "TD",
@@ -341,6 +342,7 @@ const LANGS = {
     prev: "Oncekiler", year: "2026",
     ekvayring: "Acquiring", fo: "Bireysel", kontrahent: "Kurumsal",
     commission: "Komisyon", txCount: "islem", refunds: "iade",
+    themeDark: "Koyu", themeLight: "Açık",
     tip: { prev: "Önceki fiş", next: "Sonraki fiş", zoomIn: "Yakınlaştır", zoomOut: "Uzaklaştır", del: "Fişi sil", addPhoto: "Fotoğraf ekle", entry: "Fiş görünümü", table: "Özet tablo", excel: "Banka ekstreleri", exportXls: "Excel dosyasını indir", raw: "Fiş metnini göster", start: "Tüm fişleri taramayı başlat", theme: "Temayı değiştir" },
   },
   en: {
@@ -355,6 +357,7 @@ const LANGS = {
     prev: "Previous", year: "2026",
     ekvayring: "Acquiring", fo: "From individuals", kontrahent: "From counterparties",
     commission: "Commission", txCount: "transactions", refunds: "refunds",
+    themeDark: "Dark", themeLight: "Light",
     tip: { prev: "Previous receipt", next: "Next receipt", zoomIn: "Zoom in", zoomOut: "Zoom out", del: "Delete receipt", addPhoto: "Add photo", entry: "Receipt view", table: "Summary table", excel: "Bank statements", exportXls: "Download Excel file", raw: "Show receipt text", start: "Start scanning all receipts", theme: "Toggle theme" },
   }
 };
@@ -705,52 +708,41 @@ export default function App() {
       <header className="app-header">
         <div className="header-brand">
           <div className="header-logo">{"🧾"}</div>
-          <div>
-            <h1 className="header-title">{t.title}</h1>
-            <p className="header-subtitle">
-              {m.subtitle}
-              {receipts.length > 0 && <span> {"·"} {doneC}/{receipts.length} {"✓"}</span>}
-              {pendingCount > 0 && <span className="stat-pending"> {"·"} {pendingCount} {"⏳"}</span>}
-              {scanC > 0 && <span className="stat-scanning"> {"·"} {scanC} {"..."}</span>}
-              {ocrReady && receipts.length === 0 && <span className="stat-ready"> {"·"} OCR {"✓"}</span>}
-            </p>
-          </div>
+          <span className="header-name">{t.title}</span>
         </div>
 
-        <div className="header-actions">
-          {/* Language */}
-          <div className="btn-group">
-            {Object.entries(LANGS).map(([k]) => (
-              <button key={k} onClick={() => setLang(k)} className={`lang-btn${lang === k ? " lang-btn--active" : ""}`} data-tooltip={k === "ua" ? "Українська" : k === "tr" ? "Türkçe" : "English"} data-tooltip-pos="bottom">
-                {k === "ua" ? "🇺🇦" : k === "tr" ? "🇹🇷" : "🇬🇧"}
-              </button>
-            ))}
-          </div>
-
-          {/* Theme Toggle */}
-          <button onClick={toggleTheme} className="theme-toggle" data-tooltip={t.tip.theme} data-tooltip-pos="bottom">
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
-
-          {/* View Tabs */}
-          <div className="btn-group">
-            <button onClick={() => setView("entry")} className={`tab${view === "entry" ? " tab--active" : ""}`} data-tooltip={t.tip.entry} data-tooltip-pos="bottom">
+        <div className="header-nav-group">
+          <nav className="header-nav">
+            <button onClick={() => setView("entry")} className={`nav-tab${view === "entry" ? " nav-tab--active" : ""}`}>
               <span>{"📝"}</span> {t.entry}
+              {receipts.length > 0 && <span className="nav-badge">{doneC}/{receipts.length}</span>}
             </button>
-            <button onClick={() => setView("table")} className={`tab${view === "table" ? " tab--active" : ""}`} data-tooltip={t.tip.table} data-tooltip-pos="bottom">
-              <span>{"📊"}</span> {t.table}
-              {doneC > 0 && <span className="badge">{tableData.length}</span>}
-            </button>
-            <button onClick={() => setView("excel")} className={`tab${view === "excel" ? " tab--active" : ""}`} data-tooltip={t.tip.excel} data-tooltip-pos="bottom">
+            <button onClick={() => setView("excel")} className={`nav-tab${view === "excel" ? " nav-tab--active" : ""}`}>
               <span>{"🏦"}</span> {t.excel}
-              {excelFiles.length > 0 && <span className="badge">{excelFiles.length}</span>}
+              {excelFiles.length > 0 && <span className="nav-badge">{excelFiles.length}</span>}
             </button>
-          </div>
+          </nav>
+          <nav className="header-nav">
+            <button onClick={() => setView("table")} className={`nav-tab${view === "table" ? " nav-tab--active" : ""}`}>
+              <span>{"📊"}</span> {t.table}
+              {tableData.length > 0 && <span className="nav-badge">{tableData.length}</span>}
+            </button>
+          </nav>
+        </div>
 
-          {/* Export */}
-          <button onClick={exportXlsx} className="btn btn--success" disabled={scanC > 0 || pendingCount > 0} data-tooltip={t.tip.exportXls} data-tooltip-pos="bottom-end">
-            {"⬇"} {t.export}
+        <div className="header-utils">
+          <button onClick={exportXlsx} className="export-btn" disabled={scanC > 0 || pendingCount > 0}>
+            <span>{"⬇"}</span> {t.export}
           </button>
+          <select value={lang} onChange={e => setLang(e.target.value)} className="header-select">
+            <option value="ua">{"🇺🇦 Українська"}</option>
+            <option value="tr">{"🇹🇷 Türkçe"}</option>
+            <option value="en">{"🇬🇧 English"}</option>
+          </select>
+          <select value={theme} onChange={e => setTheme(e.target.value)} className="header-select">
+            <option value="dark">{"🌙"} {t.themeDark}</option>
+            <option value="light">{"☀️"} {t.themeLight}</option>
+          </select>
         </div>
       </header>
 
@@ -965,96 +957,95 @@ export default function App() {
       ) : view === "excel" ? (
         /* ─── Excel / Bank Statements View ─── */
         <div className="excel-view">
-          {/* Drop zone header */}
-          <div
-            className={`excel-dropzone${dragOver ? " dropzone--active" : ""}`}
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={e => { e.preventDefault(); setDragOver(false); handleExcelFiles(e.dataTransfer.files); }}
-            onClick={() => excelFileRef.current?.click()}
-          >
-            <span className="excel-dropzone__icon">{"🏦"}</span>
-            <span className="excel-dropzone__text">{excelFiles.length === 0 ? m.excelDrop : `+ ${m.excelDropSub}`}</span>
-            <input ref={excelFileRef} type="file" multiple accept=".xlsx,.xls" style={{ display: "none" }} onChange={e => { handleExcelFiles(e.target.files); e.target.value = ""; }} />
-          </div>
+          <input ref={excelFileRef} type="file" multiple accept=".xlsx,.xls" style={{ display: "none" }} onChange={e => { handleExcelFiles(e.target.files); e.target.value = ""; }} />
 
           {excelFiles.length === 0 ? (
-            <div className="panel-center" style={{ flex: 1 }}>
-              <span className="panel-center__icon">{"📋"}</span>
-              <p className="panel-center__sub">{m.excelNoData}</p>
+            /* Big centered drop zone when empty */
+            <div
+              className={`excel-empty-drop${dragOver ? " dropzone--active" : ""}`}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); handleExcelFiles(e.dataTransfer.files); }}
+              onClick={() => excelFileRef.current?.click()}
+            >
+              <span className="excel-empty-drop__icon">{"🏦"}</span>
+              <span className="excel-empty-drop__title">{m.excelDrop}</span>
+              <span className="excel-empty-drop__sub">{m.excelDropSub}</span>
             </div>
           ) : (
             <>
-              {/* File cards */}
+            {/* Top bar: small dropzone + summary */}
+            <div className="excel-topbar">
+              <div
+                className={`excel-dropzone${dragOver ? " dropzone--active" : ""}`}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => { e.preventDefault(); setDragOver(false); handleExcelFiles(e.dataTransfer.files); }}
+                onClick={() => excelFileRef.current?.click()}
+              >
+                <span className="excel-dropzone__icon">{"📂"}</span>
+                <div className="excel-dropzone__content">
+                  <span className="excel-dropzone__title">{`+ ${m.excelDropSub}`}</span>
+                </div>
+              </div>
+              {(() => {
+                const totals = {};
+                excelFiles.forEach(f => { const fop = f.editFop.trim(); if (!fop) return; if (!totals[fop]) totals[fop] = 0; totals[fop] += parseNum(f.editTotal); });
+                return Object.keys(totals).length > 0 ? (
+                  <div className="excel-summary-pill">
+                    <span className="excel-summary-pill__label">{t.bezgotivka}</span>
+                    {Object.entries(totals).map(([fop, total]) => (
+                      <span key={fop} className="excel-summary-pill__value">{fmt(total)} {"₴"}</span>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+            <div className="excel-grid">
               {excelFiles.map((ef, i) => (
                 <div key={ef.id} className="excel-card">
-                  <div className="excel-card-header">
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span className={`type-badge type-badge--${ef.type}`}>
-                        {t[ef.type] || ef.type}
-                      </span>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all" }}>{ef.name}</span>
-                    </div>
-                    <button onClick={() => deleteExcelFile(i)} className="btn btn--icon btn--sm" style={{ color: "var(--error)" }}>{"✕"}</button>
+                  <div className="excel-card-head">
+                    <span className={`type-badge type-badge--${ef.type}`}>{t[ef.type] || ef.type}</span>
+                    <button onClick={() => deleteExcelFile(i)} className="excel-card-del">{"✕"}</button>
                   </div>
 
-                  <div className="excel-card-stats">
+                  <div className="excel-card-amount">
+                    <input value={ef.editTotal} onChange={e => updExcel(i, "editTotal", e.target.value)} className="excel-card-amount__input" />
+                    <span className="excel-card-amount__currency">{"₴"}</span>
+                  </div>
+
+                  <div className="excel-card-meta">
                     <span>{ef.txCount} {t.txCount}</span>
-                    {ef.commissionTotal > 0 && <span>{t.commission}: {fmt(ef.commissionTotal)} {"₴"}</span>}
-                    {ef.paymentTotal > 0 && <span>{"→"} {fmt(ef.paymentTotal)} {"₴"}</span>}
+                    {ef.commissionTotal > 0 && <span>{t.commission}: {fmt(ef.commissionTotal)}₴</span>}
+                    {ef.paymentTotal > 0 && <span>{"→ "}{fmt(ef.paymentTotal)}₴</span>}
                     {ef.refundCount > 0 && <span className="excel-refund">{"−"}{ef.refundCount} {t.refunds}</span>}
                   </div>
 
-                  <div className="field-row">
-                    <div>
+                  <div className="excel-card-fields">
+                    <div className="excel-card-field">
                       <label className="label">{t.fopLabel}</label>
-                      <input value={ef.editFop} onChange={e => updExcel(i, "editFop", e.target.value)} className="input" />
+                      <input value={ef.editFop} onChange={e => updExcel(i, "editFop", e.target.value)} className="input input--sm" />
                     </div>
-                    <div>
+                    <div className="excel-card-field">
                       <label className="label">{t.tdLabel}</label>
-                      <input value={ef.editTd} onChange={e => updExcel(i, "editTd", e.target.value)} className="input" placeholder="..." />
+                      <input value={ef.editTd} onChange={e => updExcel(i, "editTd", e.target.value)} className="input input--sm" placeholder="..." />
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <label className="label">{t.month}</label>
-                      <div className="month-grid">
-                        {t.monthShort.map((mo, mi) => (
-                          <button key={mi} onClick={() => updExcel(i, "editMonth", mi)} className={`month-btn${ef.editMonth === mi ? " month-btn--active" : ""}`}>{mo}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ minWidth: 120 }}>
-                      <label className="label">{t.bezgotivka} {"₴"}</label>
-                      <input value={ef.editTotal} onChange={e => updExcel(i, "editTotal", e.target.value)} className="input input--mono" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Summary */}
-              {(() => {
-                const totals = {};
-                excelFiles.forEach(f => {
-                  const fop = f.editFop.trim();
-                  if (!fop) return;
-                  if (!totals[fop]) totals[fop] = 0;
-                  totals[fop] += parseNum(f.editTotal);
-                });
-                return (
-                  <div className="excel-summary">
-                    <span style={{ fontWeight: 600, fontSize: 12, color: "var(--text-muted)" }}>{t.bezgotivka}</span>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                      {Object.entries(totals).map(([fop, total]) => (
-                        <span key={fop} style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, color: "var(--success)" }}>
-                          {fmt(total)} {"₴"}
-                        </span>
+                  <div className="excel-card-month">
+                    <div className="month-grid month-grid--compact">
+                      {t.monthShort.map((mo, mi) => (
+                        <button key={mi} onClick={() => updExcel(i, "editMonth", mi)} className={`month-btn${ef.editMonth === mi ? " month-btn--active" : ""}`}>{mo}</button>
                       ))}
                     </div>
                   </div>
-                );
-              })()}
+
+                  <div className="excel-card-file">
+                    <span className="excel-card-filename">{ef.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
             </>
           )}
         </div>
