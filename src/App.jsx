@@ -139,6 +139,89 @@ function parseReceipt(text) {
   return { fop, td, gotivka, kartka, razom: razom || (gotivka + kartka), monthIdx, rawText: text };
 }
 
+/* ─── Bank Statement Parser ─── */
+function parseBankStatement(data) {
+  const wb = XLSX.read(data, { type: "array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+  let fop = "", monthIdx = -1, headerRow = -1;
+
+  // Scan header rows for FOP name and period
+  for (let i = 0; i < Math.min(15, rows.length); i++) {
+    const rowText = rows[i].map(c => String(c)).join(" ");
+    if (!fop) {
+      const m = rowText.match(/Кл[iі][єе]нт:?\s*(.+?)\s*ФОП/i);
+      if (m) fop = m[1].replace(/\s+/g, " ").trim();
+    }
+    if (monthIdx === -1) {
+      const m = rowText.match(/пер[iі]од\s*[зз]?\s*\d{2}\.(\d{2})\.\d{4}/i);
+      if (m) monthIdx = parseInt(m[1]) - 1;
+    }
+    if (headerRow === -1 && String(rows[i][0]).trim() === "№") headerRow = i;
+  }
+
+  if (headerRow === -1) return null;
+
+  // Parse transaction rows
+  const transactions = [];
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    const nr = String(row[0] || "").trim();
+    if (!nr) break;
+    if (/^[А-ЯІЇЄҐа-яіїєґ]/.test(nr) || /Разом|разом/i.test(nr)) break;
+
+    transactions.push({
+      id: nr,
+      date: String(row[1] || ""),
+      amount: typeof row[3] === "number" ? row[3] : parseFloat(String(row[3]).replace(/\s/g, "").replace(",", ".")) || 0,
+      description: String(row[5] || ""),
+      contragent: String(row[7] || ""),
+    });
+  }
+
+  if (!transactions.length) return null;
+
+  // Auto-detect type (check LIQPAY first — від ФО contragent also contains "еквайринг")
+  let type = "kontrahent";
+  const allDesc = transactions.map(t => t.description).join(" ");
+  if (/LIQPAY/i.test(allDesc)) type = "fo";
+  else if (/Ком\s*бан/i.test(allDesc)) type = "ekvayring";
+
+  // Compute totals per type
+  let total = 0, refundCount = 0, commissionTotal = 0, paymentTotal = 0, refundTotal = 0;
+
+  transactions.forEach(tx => {
+    if (type === "ekvayring") {
+      const cm = tx.description.match(/Ком\s*бан\s*([\d\s.,]+)\s*грн/i);
+      if (cm) {
+        tx.commission = parseFloat(cm[1].replace(/\s/g, "").replace(",", ".")) || 0;
+        commissionTotal += tx.commission;
+      }
+    } else if (type === "fo") {
+      paymentTotal += tx.amount;
+    } else {
+      if (/Повернення/i.test(tx.description)) {
+        tx.isRefund = true;
+        refundCount++;
+        refundTotal += tx.amount;
+      } else {
+        paymentTotal += tx.amount;
+      }
+    }
+  });
+
+  total = Math.round((commissionTotal + paymentTotal) * 100) / 100;
+
+  return {
+    fop, monthIdx, type, transactions, total,
+    refundCount, refundTotal: Math.round(refundTotal * 100) / 100,
+    commissionTotal: Math.round(commissionTotal * 100) / 100,
+    paymentTotal: Math.round(paymentTotal * 100) / 100,
+    txCount: transactions.length,
+  };
+}
+
 /* ─── Milana Messages ─── */
 const MILANA = {
   ua: {
@@ -164,6 +247,11 @@ const MILANA = {
     startBtn: "Міланочко, починаємо сканування!",
     pendingMsg: "Готові до сканування",
     deleted: "Мілана прибрала",
+    excelDrop: "Міланочко, кидай виписки сюди!",
+    excelDropSub: "ПриватБанк виписки (.xlsx)",
+    excelParsed: "Виписку оброблено!",
+    excelNoData: "Міланочко, завантаж виписки",
+    excelDeleted: "Виписку видалено",
   },
   tr: {
     scanning: [
@@ -188,6 +276,11 @@ const MILANA = {
     startBtn: "Milana, taramayı başlat!",
     pendingMsg: "Taranmaya hazir",
     deleted: "Milana temizledi",
+    excelDrop: "Milana, ekstreleri buraya birak!",
+    excelDropSub: "PrivatBank ekstreleri (.xlsx)",
+    excelParsed: "Ekstre islendi!",
+    excelNoData: "Milana, once ekstreleri yukle",
+    excelDeleted: "Ekstre silindi",
   },
   en: {
     scanning: [
@@ -212,6 +305,11 @@ const MILANA = {
     startBtn: "Milana, start scanning!",
     pendingMsg: "Ready to scan",
     deleted: "Milana cleaned up",
+    excelDrop: "Milana, drop statements here!",
+    excelDropSub: "PrivatBank statements (.xlsx)",
+    excelParsed: "Statement processed!",
+    excelNoData: "Milana, upload statements first",
+    excelDeleted: "Statement removed",
   }
 };
 
@@ -221,37 +319,43 @@ const LANGS = {
     months: ["січень", "лютий", "березень", "квітень", "травень", "червень", "липень", "серпень", "вересень", "жовтень", "листопад", "грудень"],
     monthShort: ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"],
     title: "Помічник Мілани",
-    entry: "Чеки", table: "Таблиця", export: "Завантажити Excel",
+    entry: "Чеки", table: "Таблиця", excel: "Виписки", export: "Завантажити Excel",
     gotivka: "Готівка", bezgotivka: "Готівка", vsogo: "Всього",
     fopLabel: "ФОП", tdLabel: "ТД",
     gotShort: "Готівка", bezShort: "Готівка", vsoShort: "Всього",
     month: "Місяць", rawText: "Текст чеку",
     prev: "Попередні", year: "2026",
-    tip: { prev: "Попередній чек", next: "Наступний чек", zoomIn: "Збільшити", zoomOut: "Зменшити", del: "Видалити чек", addPhoto: "Додати фото", entry: "Перегляд чеків", table: "Зведена таблиця", exportXls: "Завантажити Excel-файл", raw: "Показати текст чеку", start: "Запустити сканування всіх чеків", theme: "Змінити тему" },
+    ekvayring: "Еквайринг", fo: "Від ФО", kontrahent: "Від контрагентів",
+    commission: "Комісія", txCount: "операцій", refunds: "повернень",
+    tip: { prev: "Попередній чек", next: "Наступний чек", zoomIn: "Збільшити", zoomOut: "Зменшити", del: "Видалити чек", addPhoto: "Додати фото", entry: "Перегляд чеків", table: "Зведена таблиця", excel: "Банківські виписки", exportXls: "Завантажити Excel-файл", raw: "Показати текст чеку", start: "Запустити сканування всіх чеків", theme: "Змінити тему" },
   },
   tr: {
     months: ["Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik"],
     monthShort: ["Oca", "Sub", "Mar", "Nis", "May", "Haz", "Tem", "Agu", "Eyl", "Eki", "Kas", "Ara"],
     title: "Milana Asistani",
-    entry: "Fisler", table: "Tablo", export: "Excel Indir",
+    entry: "Fisler", table: "Tablo", excel: "Ekstreler", export: "Excel Indir",
     gotivka: "Nakit", bezgotivka: "Banka", vsogo: "Toplam",
     fopLabel: "FOP", tdLabel: "TD",
     gotShort: "Nakit", bezShort: "Banka", vsoShort: "Toplam",
     month: "Ay", rawText: "Fis metni",
     prev: "Oncekiler", year: "2026",
-    tip: { prev: "Önceki fiş", next: "Sonraki fiş", zoomIn: "Yakınlaştır", zoomOut: "Uzaklaştır", del: "Fişi sil", addPhoto: "Fotoğraf ekle", entry: "Fiş görünümü", table: "Özet tablo", exportXls: "Excel dosyasını indir", raw: "Fiş metnini göster", start: "Tüm fişleri taramayı başlat", theme: "Temayı değiştir" },
+    ekvayring: "Acquiring", fo: "Bireysel", kontrahent: "Kurumsal",
+    commission: "Komisyon", txCount: "islem", refunds: "iade",
+    tip: { prev: "Önceki fiş", next: "Sonraki fiş", zoomIn: "Yakınlaştır", zoomOut: "Uzaklaştır", del: "Fişi sil", addPhoto: "Fotoğraf ekle", entry: "Fiş görünümü", table: "Özet tablo", excel: "Banka ekstreleri", exportXls: "Excel dosyasını indir", raw: "Fiş metnini göster", start: "Tüm fişleri taramayı başlat", theme: "Temayı değiştir" },
   },
   en: {
     months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
     monthShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     title: "Milana's Helper",
-    entry: "Receipts", table: "Table", export: "Download Excel",
+    entry: "Receipts", table: "Table", excel: "Statements", export: "Download Excel",
     gotivka: "Cash", bezgotivka: "Bank", vsogo: "Total",
     fopLabel: "FOP", tdLabel: "TD",
     gotShort: "Cash", bezShort: "Bank", vsoShort: "Total",
     month: "Month", rawText: "Raw text",
     prev: "Previous", year: "2026",
-    tip: { prev: "Previous receipt", next: "Next receipt", zoomIn: "Zoom in", zoomOut: "Zoom out", del: "Delete receipt", addPhoto: "Add photo", entry: "Receipt view", table: "Summary table", exportXls: "Download Excel file", raw: "Show receipt text", start: "Start scanning all receipts", theme: "Toggle theme" },
+    ekvayring: "Acquiring", fo: "From individuals", kontrahent: "From counterparties",
+    commission: "Commission", txCount: "transactions", refunds: "refunds",
+    tip: { prev: "Previous receipt", next: "Next receipt", zoomIn: "Zoom in", zoomOut: "Zoom out", del: "Delete receipt", addPhoto: "Add photo", entry: "Receipt view", table: "Summary table", excel: "Bank statements", exportXls: "Download Excel file", raw: "Show receipt text", start: "Start scanning all receipts", theme: "Toggle theme" },
   }
 };
 
@@ -296,6 +400,10 @@ export default function App() {
   const workersRef = useRef(workers);
   workersRef.current = workers;
   const allDoneRef = useRef(false);
+
+  /* ─── Excel Bank Statements ─── */
+  const [excelFiles, setExcelFiles] = useState([]);
+  const excelFileRef = useRef(null);
 
   const notify = (msg, type = "success") => { setNotif({ msg, type }); setTimeout(() => setNotif(null), 2500); };
 
@@ -390,6 +498,42 @@ export default function App() {
     if (nr.length) { setReceipts(p => [...p, ...nr]); notify(`${nr.length} ${m.photosAdded} +`); }
   }, [m]);
 
+  const handleExcelFiles = useCallback((files) => {
+    Array.from(files).forEach(file => {
+      if (!file.name.match(/\.xlsx?$/i)) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const result = parseBankStatement(new Uint8Array(e.target.result));
+          if (result) {
+            setExcelFiles(p => [...p, {
+              id: Date.now() + Math.random(),
+              name: file.name,
+              ...result,
+              editFop: cleanName(result.fop),
+              editTd: "",
+              editMonth: result.monthIdx >= 0 ? result.monthIdx : 0,
+              editTotal: result.total.toString(),
+              status: "parsed",
+            }]);
+            notify(m.excelParsed);
+          } else {
+            notify("Parse error: " + file.name, "error");
+          }
+        } catch { notify("Error: " + file.name, "error"); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }, [m]);
+
+  const deleteExcelFile = (idx) => {
+    const name = excelFiles[idx]?.name;
+    setExcelFiles(p => p.filter((_, i) => i !== idx));
+    if (name) notify(`${name} — ${m.excelDeleted}`);
+  };
+
+  const updExcel = (i, f, v) => setExcelFiles(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
+
   const startOcr = () => {
     if (!ocrReady) return;
     allDoneRef.current = false;
@@ -426,6 +570,18 @@ export default function App() {
       if (!entry.months[mo]) entry.months[mo] = { g: 0, b: 0 };
       entry.months[mo].g += parseNum(r.editGot);
       entry.months[mo].b += parseNum(r.editBez);
+    });
+    // Merge Excel bank statement data
+    excelFiles.filter(f => f.status === "parsed").forEach(f => {
+      const fop = f.editFop.trim();
+      if (!fop) return;
+      const td = f.editTd.trim();
+      const key = `${fop}|||${td}`;
+      if (!map.has(key)) map.set(key, { fop, td, months: {} });
+      const entry = map.get(key);
+      const mo = f.editMonth;
+      if (!entry.months[mo]) entry.months[mo] = { g: 0, b: 0 };
+      entry.months[mo].b += parseNum(f.editTotal);
     });
     return [...map.values()];
   };
@@ -584,6 +740,10 @@ export default function App() {
             <button onClick={() => setView("table")} className={`tab${view === "table" ? " tab--active" : ""}`} data-tooltip={t.tip.table} data-tooltip-pos="bottom">
               <span>{"📊"}</span> {t.table}
               {doneC > 0 && <span className="badge">{tableData.length}</span>}
+            </button>
+            <button onClick={() => setView("excel")} className={`tab${view === "excel" ? " tab--active" : ""}`} data-tooltip={t.tip.excel} data-tooltip-pos="bottom">
+              <span>{"🏦"}</span> {t.excel}
+              {excelFiles.length > 0 && <span className="badge">{excelFiles.length}</span>}
             </button>
           </div>
 
@@ -801,6 +961,102 @@ export default function App() {
               </>
             )}
           </div>
+        </div>
+      ) : view === "excel" ? (
+        /* ─── Excel / Bank Statements View ─── */
+        <div className="excel-view">
+          {/* Drop zone header */}
+          <div
+            className={`excel-dropzone${dragOver ? " dropzone--active" : ""}`}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); handleExcelFiles(e.dataTransfer.files); }}
+            onClick={() => excelFileRef.current?.click()}
+          >
+            <span className="excel-dropzone__icon">{"🏦"}</span>
+            <span className="excel-dropzone__text">{excelFiles.length === 0 ? m.excelDrop : `+ ${m.excelDropSub}`}</span>
+            <input ref={excelFileRef} type="file" multiple accept=".xlsx,.xls" style={{ display: "none" }} onChange={e => { handleExcelFiles(e.target.files); e.target.value = ""; }} />
+          </div>
+
+          {excelFiles.length === 0 ? (
+            <div className="panel-center" style={{ flex: 1 }}>
+              <span className="panel-center__icon">{"📋"}</span>
+              <p className="panel-center__sub">{m.excelNoData}</p>
+            </div>
+          ) : (
+            <>
+              {/* File cards */}
+              {excelFiles.map((ef, i) => (
+                <div key={ef.id} className="excel-card">
+                  <div className="excel-card-header">
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className={`type-badge type-badge--${ef.type}`}>
+                        {t[ef.type] || ef.type}
+                      </span>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all" }}>{ef.name}</span>
+                    </div>
+                    <button onClick={() => deleteExcelFile(i)} className="btn btn--icon btn--sm" style={{ color: "var(--error)" }}>{"✕"}</button>
+                  </div>
+
+                  <div className="excel-card-stats">
+                    <span>{ef.txCount} {t.txCount}</span>
+                    {ef.commissionTotal > 0 && <span>{t.commission}: {fmt(ef.commissionTotal)} {"₴"}</span>}
+                    {ef.paymentTotal > 0 && <span>{"→"} {fmt(ef.paymentTotal)} {"₴"}</span>}
+                    {ef.refundCount > 0 && <span className="excel-refund">{"−"}{ef.refundCount} {t.refunds}</span>}
+                  </div>
+
+                  <div className="field-row">
+                    <div>
+                      <label className="label">{t.fopLabel}</label>
+                      <input value={ef.editFop} onChange={e => updExcel(i, "editFop", e.target.value)} className="input" />
+                    </div>
+                    <div>
+                      <label className="label">{t.tdLabel}</label>
+                      <input value={ef.editTd} onChange={e => updExcel(i, "editTd", e.target.value)} className="input" placeholder="..." />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="label">{t.month}</label>
+                      <div className="month-grid">
+                        {t.monthShort.map((mo, mi) => (
+                          <button key={mi} onClick={() => updExcel(i, "editMonth", mi)} className={`month-btn${ef.editMonth === mi ? " month-btn--active" : ""}`}>{mo}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ minWidth: 120 }}>
+                      <label className="label">{t.bezgotivka} {"₴"}</label>
+                      <input value={ef.editTotal} onChange={e => updExcel(i, "editTotal", e.target.value)} className="input input--mono" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Summary */}
+              {(() => {
+                const totals = {};
+                excelFiles.forEach(f => {
+                  const fop = f.editFop.trim();
+                  if (!fop) return;
+                  if (!totals[fop]) totals[fop] = 0;
+                  totals[fop] += parseNum(f.editTotal);
+                });
+                return (
+                  <div className="excel-summary">
+                    <span style={{ fontWeight: 600, fontSize: 12, color: "var(--text-muted)" }}>{t.bezgotivka}</span>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                      {Object.entries(totals).map(([fop, total]) => (
+                        <span key={fop} style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, color: "var(--success)" }}>
+                          {fmt(total)} {"₴"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
         </div>
       ) : (
         /* ─── Table View ─── */
