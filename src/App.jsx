@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Tesseract from "tesseract.js";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 /* ─── Image Preprocessing ─── */
 function preprocessImage(imgUrl) {
@@ -38,14 +38,51 @@ function preprocessImage(imgUrl) {
   });
 }
 
+/* ─── OCR Text Cleanup ─── */
+function cleanOcrLine(line) {
+  return line
+    .replace(/[«»„""]/g, '"')
+    .replace(/[|\\{}[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanName(name) {
+  if (!name) return '';
+  let c = name;
+  // Latin lookalikes → Cyrillic (OCR often confuses these)
+  c = c.replace(/A/g, 'А').replace(/B/g, 'В').replace(/C/g, 'С').replace(/E/g, 'Е')
+    .replace(/H/g, 'Н').replace(/I/g, 'І').replace(/K/g, 'К').replace(/M/g, 'М')
+    .replace(/O/g, 'О').replace(/P/g, 'Р').replace(/T/g, 'Т').replace(/X/g, 'Х')
+    .replace(/a/g, 'а').replace(/c/g, 'с').replace(/e/g, 'е')
+    .replace(/i/g, 'і').replace(/o/g, 'о').replace(/p/g, 'р').replace(/x/g, 'х');
+  // Remove everything non-Cyrillic except dots, spaces, hyphens, apostrophes
+  c = c.replace(/[^А-ЯІЇЄҐа-яіїєґ.\s''\u2019-]/g, '').replace(/\s+/g, ' ').trim();
+  // After initials pattern (e.g. "Прізвище Ю.С."), truncate everything after
+  const initMatch = c.match(/^(.+?[А-ЯІЇЄҐа-яіїєґ]\.[А-ЯІЇЄҐа-яіїєґ]\.?)/);
+  if (initMatch) c = initMatch[1].trim();
+  // Remove isolated single Cyrillic letters (OCR noise)
+  c = c.replace(/(?:^|\s)[А-ЯІЇЄҐа-яіїєґ](?:\s|$)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return c;
+}
+
 /* ─── Receipt Parser ─── */
 function parseReceipt(text) {
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  const lines = text.split("\n").map(l => cleanOcrLine(l)).filter(Boolean);
   let fop = "", td = "", gotivka = 0, kartka = 0, razom = 0, monthIdx = -1;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (/ФОП\s+/i.test(line) && !fop) fop = line.replace(/^.*?ФОП\s*/i, "").trim();
+    let line = lines[i];
+    // Normalize Latin lookalikes in the line for keyword matching
+    const norm = line.replace(/A/g,'А').replace(/B/g,'В').replace(/C/g,'С').replace(/E/g,'Е')
+      .replace(/H/g,'Н').replace(/I/g,'І').replace(/K/g,'К').replace(/M/g,'М')
+      .replace(/O/g,'О').replace(/P/g,'Р').replace(/T/g,'Т').replace(/X/g,'Х');
+    // Match ФОП with OCR variants
+    if (/[ФфF«][ОоО0][ПпР]\s+/i.test(norm) && !fop) {
+      fop = norm.replace(/^.*?[ФфF«][ОоО0][ПпР]\s*/i, "").trim();
+    }
     if (/Від\s+\d{4}/i.test(line)) {
       const mt = line.match(/Від\s+(\d{4})-(\d{2})-\d{2}/i);
       if (mt) monthIdx = parseInt(mt[2]) - 1;
@@ -53,21 +90,32 @@ function parseReceipt(text) {
     const nm = line.match(/([\d\s]+[.,]\d{2})\s*$/);
     const num = nm ? parseFloat(nm[1].replace(/\s/g, "").replace(",", ".")) : null;
     if (num !== null && num > 0) {
-      if (/ГОТІВКА/i.test(line) && !/БЕЗ/i.test(line) && !gotivka) gotivka = num;
-      if ((/КАРТКА/i.test(line) || /БЕЗГОТІВК/i.test(line)) && !kartka) kartka = num;
-      if (/РАЗОМ/i.test(line) && !razom) razom = num;
+      // Require keywords at the START of the line
+      // Don't match БЕЗГОТІВК — OCR often misreads ГОТІВКА as БЕЗГОТІВКА
+      if (/^\s*ГОТІВКА/i.test(norm) && !gotivka) gotivka = num;
+      if (/^\s*КАРТКА/i.test(norm) && !kartka) kartka = num;
+      if (/^\s*РАЗОМ/i.test(norm) && !razom) razom = num;
     }
+  }
+
+  // Derive card amount mathematically: if РАЗОМ > ГОТІВКА, the difference is card
+  if (razom > 0 && gotivka > 0 && razom > gotivka) {
+    kartka = Math.round((razom - gotivka) * 100) / 100;
+  } else if (razom > 0 && gotivka === 0 && kartka === 0) {
+    // Only РАЗОМ found — treat as cash
+    gotivka = razom;
   }
 
   if (fop) {
     for (let i = 0; i < lines.length; i++) {
-      if (/ФОП\s+/i.test(lines[i])) {
+      const ln = lines[i].replace(/A/g,'А').replace(/O/g,'О').replace(/P/g,'Р');
+      if (/[ФфF«][ОоО0][ПпР]\s+/i.test(ln)) {
         for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
           const candidate = lines[j].trim();
           if (candidate.length > 1 && candidate.length < 40 &&
             !/м\.\s|район|проспект|буд\.|ІД\s|ПЕРІОДИЧ|КОРОТКИЙ|ЗВІТ|ФІСКАЛЬН/i.test(candidate) &&
             !/^\d/.test(candidate)) {
-            td = candidate;
+            td = cleanName(candidate);
             break;
           }
         }
@@ -79,11 +127,14 @@ function parseReceipt(text) {
   if (!fop) {
     for (const line of lines) {
       if (/[А-ЯІЇЄҐа-яіїєґ]{3,}/.test(line) && line.length > 5 && line.length < 60) {
-        const c = line.replace(/^ФОП\s*/i, "").trim();
+        const c = line.replace(/^.*?[ФфF«][ОоО0][ПпР]\s*/i, "").trim();
         if (c.length > 3 && !/ПЕРІОДИЧ|КОРОТКИЙ|КАФЕ|ЗВІТ|ФІСКАЛЬН|Profit|ВСЬОГО|РАЗОМ|ГОТІВКА|КАРТКА|БЕЗГОТІВК|ПОВЕРНЕННЯ|СУМА|ОБІГ|ПОДАТОК/i.test(c)) { fop = c; break; }
       }
     }
   }
+
+  fop = cleanName(fop);
+  td = cleanName(td);
 
   return { fop, td, gotivka, kartka, razom: razom || (gotivka + kartka), monthIdx, rawText: text };
 }
@@ -105,6 +156,7 @@ const MILANA = {
     drop: "Міланочко, кидай чеки сюди!",
     dropSub: "або натисни тут",
     allDone: "Все готово, Міланочко!",
+    stillScanning: "Ще скануються...",
     exported: "Excel для Мілани готовий!",
     noData: "Міланочко, спочатку завантаж чеки",
     autoSaved: "автоматично збережено",
@@ -128,6 +180,7 @@ const MILANA = {
     drop: "Milana, fisleri buraya birak!",
     dropSub: "veya buraya tikla",
     allDone: "Hepsi tamam, Milana!",
+    stillScanning: "Taranmaya devam ediyor...",
     exported: "Milana'nin Excel'i hazir!",
     noData: "Milana, once fisleri yukle",
     autoSaved: "otomatik kaydedildi",
@@ -151,6 +204,7 @@ const MILANA = {
     drop: "Milana, drop receipts here!",
     dropSub: "or click here",
     allDone: "All done, Milana!",
+    stillScanning: "Still scanning...",
     exported: "Milana's Excel is ready!",
     noData: "Milana, upload receipts first",
     autoSaved: "auto-saved",
@@ -168,9 +222,9 @@ const LANGS = {
     monthShort: ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"],
     title: "Помічник Мілани",
     entry: "Чеки", table: "Таблиця", export: "Завантажити Excel",
-    gotivka: "Готівка", bezgotivka: "Безготівка", vsogo: "Всього",
+    gotivka: "Готівка", bezgotivka: "Готівка", vsogo: "Всього",
     fopLabel: "ФОП", tdLabel: "ТД",
-    gotShort: "Гот", bezShort: "Безг", vsoShort: "Всьо",
+    gotShort: "Готівка", bezShort: "Готівка", vsoShort: "Всього",
     month: "Місяць", rawText: "Текст чеку",
     prev: "Попередні", year: "2026",
     tip: { prev: "Попередній чек", next: "Наступний чек", zoomIn: "Збільшити", zoomOut: "Зменшити", del: "Видалити чек", addPhoto: "Додати фото", entry: "Перегляд чеків", table: "Зведена таблиця", exportXls: "Завантажити Excel-файл", raw: "Показати текст чеку", start: "Запустити сканування всіх чеків", theme: "Змінити тему" },
@@ -180,9 +234,9 @@ const LANGS = {
     monthShort: ["Oca", "Sub", "Mar", "Nis", "May", "Haz", "Tem", "Agu", "Eyl", "Eki", "Kas", "Ara"],
     title: "Milana Asistani",
     entry: "Fisler", table: "Tablo", export: "Excel Indir",
-    gotivka: "Nakit", bezgotivka: "Kart", vsogo: "Toplam",
+    gotivka: "Nakit", bezgotivka: "Banka", vsogo: "Toplam",
     fopLabel: "FOP", tdLabel: "TD",
-    gotShort: "Nkt", bezShort: "Krt", vsoShort: "Top",
+    gotShort: "Nakit", bezShort: "Banka", vsoShort: "Toplam",
     month: "Ay", rawText: "Fis metni",
     prev: "Oncekiler", year: "2026",
     tip: { prev: "Önceki fiş", next: "Sonraki fiş", zoomIn: "Yakınlaştır", zoomOut: "Uzaklaştır", del: "Fişi sil", addPhoto: "Fotoğraf ekle", entry: "Fiş görünümü", table: "Özet tablo", exportXls: "Excel dosyasını indir", raw: "Fiş metnini göster", start: "Tüm fişleri taramayı başlat", theme: "Temayı değiştir" },
@@ -192,9 +246,9 @@ const LANGS = {
     monthShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     title: "Milana's Helper",
     entry: "Receipts", table: "Table", export: "Download Excel",
-    gotivka: "Cash", bezgotivka: "Card", vsogo: "Total",
+    gotivka: "Cash", bezgotivka: "Bank", vsogo: "Total",
     fopLabel: "FOP", tdLabel: "TD",
-    gotShort: "Cash", bezShort: "Card", vsoShort: "Tot",
+    gotShort: "Cash", bezShort: "Bank", vsoShort: "Total",
     month: "Month", rawText: "Raw text",
     prev: "Previous", year: "2026",
     tip: { prev: "Previous receipt", next: "Next receipt", zoomIn: "Zoom in", zoomOut: "Zoom out", del: "Delete receipt", addPhoto: "Add photo", entry: "Receipt view", table: "Summary table", exportXls: "Download Excel file", raw: "Show receipt text", start: "Start scanning all receipts", theme: "Toggle theme" },
@@ -263,7 +317,15 @@ export default function App() {
     (async () => {
       const ws = [];
       for (let i = 0; i < 3; i++) {
-        try { ws.push(await Tesseract.createWorker("ukr+rus")); } catch (e) { console.error(e); }
+        try {
+          const w = await Tesseract.createWorker("ukr+rus");
+          await w.setParameters({
+            tessedit_pageseg_mode: "6",       // Single uniform block of text
+            preserve_interword_spaces: "1",   // Keep word spacing
+            tessedit_char_blacklist: "~`@#$%^&*{}[]|\\<>",  // Block noise chars
+          });
+          ws.push(w);
+        } catch (e) { console.error(e); }
       }
       if (mounted && ws.length) { setWorkers(ws); setOcrReady(true); }
     })();
@@ -273,27 +335,30 @@ export default function App() {
   const processQueue = useCallback(async () => {
     if (processingRef.current) return;
     processingRef.current = true;
+    const claimed = new Set();
     const go = async (wi) => {
-      const recs = receiptsRef.current;
-      const ni = recs.findIndex(r => r.status === "queue");
-      if (ni === -1 || !workersRef.current[wi]) return;
-      setReceipts(p => p.map((r, i) => i === ni ? { ...r, status: "scanning" } : r));
-      try {
-        const pp = await preprocessImage(recs[ni].imgUrl);
-        const { data } = await workersRef.current[wi].recognize(pp);
-        const parsed = parseReceipt(data.text);
-        setReceipts(p => p.map((r, i) => i === ni ? {
-          ...r, status: "done", parsed,
-          editFop: parsed.fop,
-          editTd: parsed.td,
-          editGot: parsed.gotivka.toString(),
-          editBez: parsed.kartka.toString(),
-          editMonth: parsed.monthIdx >= 0 ? parsed.monthIdx : 0,
-        } : r));
-      } catch {
-        setReceipts(p => p.map((r, i) => i === ni ? { ...r, status: "error" } : r));
+      while (true) {
+        const recs = receiptsRef.current;
+        const ni = recs.findIndex((r, i) => r.status === "queue" && !claimed.has(i));
+        if (ni === -1 || !workersRef.current[wi]) return;
+        claimed.add(ni);
+        setReceipts(p => p.map((r, i) => i === ni ? { ...r, status: "scanning" } : r));
+        try {
+          const pp = await preprocessImage(recs[ni].imgUrl);
+          const { data } = await workersRef.current[wi].recognize(pp);
+          const parsed = parseReceipt(data.text);
+          setReceipts(p => p.map((r, i) => i === ni ? {
+            ...r, status: "done", parsed,
+            editFop: parsed.fop,
+            editTd: parsed.td,
+            editGot: parsed.gotivka.toString(),
+            editBez: parsed.kartka.toString(),
+            editMonth: parsed.monthIdx >= 0 ? parsed.monthIdx : 0,
+          } : r));
+        } catch {
+          setReceipts(p => p.map((r, i) => i === ni ? { ...r, status: "error" } : r));
+        }
       }
-      await go(wi);
     };
     await Promise.all(workersRef.current.map((_, i) => go(i)));
     processingRef.current = false;
@@ -404,11 +469,65 @@ export default function App() {
     mg.push({ s: { r: 0, c: 42 }, e: { r: 1, c: 42 } });
     ws["!merges"] = mg;
 
-    for (let r = 2; r < rows.length; r++)
-      for (let c = 2; c < rows[r].length; c++) {
+    /* ─── Cell Styling ─── */
+    const thin = { style: "thin", color: { rgb: "D0D0D0" } };
+    const border = { top: thin, bottom: thin, left: thin, right: thin };
+    const headerFill = { fgColor: { rgb: "4472C4" } };
+    const subHeaderFill = { fgColor: { rgb: "D9E2F3" } };
+    const stripeFill = { fgColor: { rgb: "F2F2F2" } };
+    const yearHeaderFill = { fgColor: { rgb: "E2EFDA" } };
+    const grandFill = { fgColor: { rgb: "E2EFDA" } };
+    const headerFont = { bold: true, color: { rgb: "FFFFFF" }, sz: 10, name: "Calibri" };
+    const subHeaderFont = { bold: true, color: { rgb: "333333" }, sz: 9, name: "Calibri" };
+    const bodyFont = { sz: 9, name: "Calibri", color: { rgb: "333333" } };
+    const numFont = { sz: 9, name: "Calibri", color: { rgb: "333333" } };
+    const yearFont = { bold: true, sz: 9, name: "Calibri", color: { rgb: "375623" } };
+    const totalCols = rows[0].length;
+
+    for (let r = 0; r < rows.length; r++) {
+      for (let c = 0; c < totalCols; c++) {
         const a = XLSX.utils.encode_cell({ r, c });
-        if (ws[a] && typeof ws[a].v === "number" && ws[a].v !== 0) { ws[a].t = "n"; ws[a].z = "#,##0.00"; }
+        if (!ws[a]) ws[a] = { v: "", t: "s" };
+        const cell = ws[a];
+
+        if (r === 0) {
+          // Top header row
+          const isYear = c >= 39 && c <= 41;
+          cell.s = {
+            fill: isYear ? yearHeaderFill : headerFill,
+            font: isYear ? { bold: true, color: { rgb: "375623" }, sz: 10, name: "Calibri" } : headerFont,
+            border,
+            alignment: { horizontal: c < 2 ? "left" : "center", vertical: "center", wrapText: true },
+          };
+          if (c === 42) cell.s.fill = yearHeaderFill;
+        } else if (r === 1) {
+          // Sub header row
+          cell.s = {
+            fill: subHeaderFill,
+            font: subHeaderFont,
+            border,
+            alignment: { horizontal: c < 2 ? "left" : "center", vertical: "center" },
+          };
+        } else {
+          // Data rows
+          const isStripe = (r - 2) % 2 === 1;
+          const isNum = c >= 2 && typeof cell.v === "number";
+          const isYearCol = c >= 39 && c <= 41;
+          const isGrand = c === 42;
+
+          if (isNum && cell.v !== 0) { cell.t = "n"; cell.z = "#,##0.00"; }
+
+          cell.s = {
+            fill: isGrand ? grandFill : isStripe ? stripeFill : { fgColor: { rgb: "FFFFFF" } },
+            font: isGrand ? yearFont : isYearCol ? yearFont : isNum ? numFont : bodyFont,
+            border,
+            alignment: { horizontal: isNum || isYearCol || isGrand ? "right" : "left", vertical: "center" },
+          };
+        }
       }
+    }
+
+    ws["!rows"] = [{ hpt: 22 }, { hpt: 18 }];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "\u0432 \u0440\u043E\u0437\u0440\u0456\u0437\u0456 \u0424\u041E\u041F");
@@ -469,7 +588,7 @@ export default function App() {
           </div>
 
           {/* Export */}
-          <button onClick={exportXlsx} className="btn btn--success" data-tooltip={t.tip.exportXls} data-tooltip-pos="bottom">
+          <button onClick={exportXlsx} className="btn btn--success" disabled={scanC > 0 || pendingCount > 0} data-tooltip={t.tip.exportXls} data-tooltip-pos="bottom-end">
             {"⬇"} {t.export}
           </button>
         </div>
@@ -541,6 +660,13 @@ export default function App() {
                   )}
                 </div>
 
+                {/* Scanning progress bar */}
+                {scanC > 0 && (
+                  <div className="viewer__progress">
+                    <div className="viewer__progress-bar" style={{ width: `${(doneC / receipts.length) * 100}%` }} />
+                  </div>
+                )}
+
                 {/* Thumbnails */}
                 {receipts.length > 1 && (
                   <div className="thumb-strip">
@@ -548,7 +674,7 @@ export default function App() {
                       <div key={r.id} className="thumb">
                         <img src={r.imgUrl} alt="" onClick={() => setActiveIdx(i)} className={`thumb__img${i === activeIdx ? " thumb__img--active" : ""}`} />
                         <span className="thumb__status" style={{ background: sc(r.status) }} />
-                        <button onClick={(e) => { e.stopPropagation(); deleteReceipt(i); }} className="thumb__delete" data-tooltip={t.tip.del}>{"✕"}</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteReceipt(i); }} className="thumb__delete">{"✕"}</button>
                       </div>
                     ))}
                   </div>
@@ -599,6 +725,13 @@ export default function App() {
               </div>
             ) : (
               <>
+                {/* Scanning progress banner */}
+                {scanC > 0 && (
+                  <div className="scanning-banner">
+                    <span className="scan-spinner scan-spinner--sm" />
+                    <span>{m.stillScanning} {doneC}/{receipts.length}</span>
+                  </div>
+                )}
                 {/* Auto-saved */}
                 <div className="card--auto-saved">
                   <span className="check">{"✓"}</span>
